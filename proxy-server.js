@@ -68,7 +68,7 @@ app.get('/planka-login', async (req, res) => {
       return res.redirect(redirectUrl);
       
     } catch (err) {
-      console.error('Login failed:', err.response?.data || err.message);
+      console.error('Login failed:', err.response && err.response.data || err.message);
       res.status(401).send('Login failed');
     }
   });
