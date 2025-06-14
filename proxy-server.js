@@ -6,13 +6,23 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const http = require('http');
 const net = require('net');
 const url = require('url');
+const cors = require('cors');
 
 const app = express();
 app.use(cookieParser());
 
+// CORS: Allow requests from your frontend domain
+app.use(cors({
+  origin: [
+    'https://zackywacky.net',
+    'https://planka.zackywacky.net'
+  ],
+  credentials: true,
+}));
+
 // Load from environment variables
-const PLANKA_URL = process.env.PLANKA_URL || 'http://localhost:4000';
-const PLANKA_DEFAULT_USER_PASSWORD = process.env.PLANKA_DEFAULT_USER_PASSWORD || 'admin123';
+const PLANKA_URL = process.env.PLANKA_URL;
+const PLANKA_DEFAULT_USER_PASSWORD = process.env.PLANKA_DEFAULT_USER_PASSWORD;
 
 console.log(`🌐 Planka URL: ${PLANKA_URL}`);
 console.log(`🔑 Using default password: ${PLANKA_DEFAULT_USER_PASSWORD}`);
@@ -54,7 +64,7 @@ app.get('/planka-login', async (req, res) => {
       console.log('🍪 Cookies from Planka:', setCookieHeaders);
 
       // Store the token temporarily and redirect to our auth handler
-      const redirectUrl = `http://localhost:${PORT}/proxy-auth-login?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+      const redirectUrl = `${req.protocol}://${req.get('host')}/proxy-auth-login?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
       return res.redirect(redirectUrl);
       
     } catch (err) {
@@ -72,7 +82,7 @@ app.get('/proxy-auth-login', async (req, res) => {
     return res.redirect('/');
   }
   
-  console.log(`🍪 Setting up complete authentication for localhost:4000...`);
+  console.log(`🍪 Setting up complete authentication for Planka...`);
   
   try {
     // Make a direct login request to Planka to get the httpOnlyToken  
@@ -97,14 +107,14 @@ app.get('/proxy-auth-login', async (req, res) => {
     res.cookie('accessToken', token, {
       path: '/',
       httpOnly: false,
-      secure: false,
+      secure: true,
       sameSite: 'Lax'
     });
     
     res.cookie('accessTokenVersion', '1', {
       path: '/',
       httpOnly: false,
-      secure: false,
+      secure: true,
       sameSite: 'Lax'
     });
     
@@ -122,7 +132,7 @@ app.get('/proxy-auth-login', async (req, res) => {
         
         <script>
           console.log('🍪 All authentication cookies set');
-          console.log('🔄 Redirecting to Planka at localhost:4000...');
+          console.log('🔄 Redirecting to Planka...');
           
           // Redirect to the actual Planka instance
           setTimeout(() => {
@@ -195,9 +205,9 @@ server.on('upgrade', (req, socket, head) => {
   proxy.upgrade(req, socket, head);
 });
 
-server.listen(PORT, () => {
-  console.log(`✅ Proxy server running at http://localhost:${PORT}`);
-  console.log(`🔗 Access Planka login at: http://localhost:${PORT}/planka-login?email=user@example.com`);
-  console.log(`🌐 After login, Planka will be available at: http://localhost:${PORT}/`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Proxy server running at http://0.0.0.0:${PORT}`);
+  console.log(`🔗 Access Planka login at: http://your-proxy-domain:${PORT}/planka-login?email=user@example.com`);
+  console.log(`🌐 After login, Planka will be available at: http://your-proxy-domain:${PORT}/`);
   console.log(`🔌 Simple WebSocket proxying enabled`);
 });
