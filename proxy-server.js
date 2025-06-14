@@ -4,8 +4,6 @@ const cookieParser = require('cookie-parser');
 const axios = require('axios');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const http = require('http');
-const net = require('net');
-const url = require('url');
 const cors = require('cors');
 
 const app = express();
@@ -15,14 +13,18 @@ app.use(cookieParser());
 app.use(cors({
   origin: [
     'https://zackywacky.net',
-    'https://planka.zackywacky.net'
+    'https://planka.zackywacky.net',
+    'http://localhost:3000',
+    'https://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://127.0.0.1:3000'
   ],
   credentials: true,
 }));
 
-// Load from environment variables
-const PLANKA_URL = process.env.PLANKA_URL;
-const PLANKA_DEFAULT_USER_PASSWORD = process.env.PLANKA_DEFAULT_USER_PASSWORD;
+// Load from environment variables with fallbacks for manual testing
+const PLANKA_URL = process.env.PLANKA_URL || 'http://localhost:4000';
+const PLANKA_DEFAULT_USER_PASSWORD = process.env.PLANKA_DEFAULT_USER_PASSWORD || 'P@55w0rd';
 
 console.log(`🌐 Planka URL: ${PLANKA_URL}`);
 console.log(`🔑 Using default password: ${PLANKA_DEFAULT_USER_PASSWORD}`);
@@ -112,14 +114,14 @@ app.get('/proxy-auth-login', async (req, res) => {
     res.cookie('accessToken', token, {
       path: '/',
       httpOnly: false,
-      secure: true,
+      secure: false,  // Allow HTTP for localhost
       sameSite: 'Lax'
     });
     
     res.cookie('accessTokenVersion', '1', {
       path: '/',
       httpOnly: false,
-      secure: true,
+      secure: false,  // Allow HTTP for localhost
       sameSite: 'Lax'
     });
     
@@ -139,50 +141,60 @@ app.get('/proxy-auth-login', async (req, res) => {
           console.log('🍪 All authentication cookies set');
           console.log('🔄 Redirecting to Planka...');
           
-          // Redirect to the actual Planka instance
+          // Redirect to the proxy server root (which proxies to Planka)
           setTimeout(() => {
-            window.location.href = '${PLANKA_URL}';
+            window.location.href = '/';
           }, 2000);
         </script>
         
-        <p><a href="${PLANKA_URL}">Click here if you are not redirected automatically</a></p>
+        <p><a href="/">Click here if you are not redirected automatically</a></p>
       </body>
     </html>
   `);
 });
 
-// Regular HTTP proxy with WebSocket support enabled
+// Simplified proxy configuration with basic WebSocket support
 const proxy = createProxyMiddleware({
   target: PLANKA_URL,
   changeOrigin: true,
-  ws: true,
-  logLevel: 'debug',
+  ws: true, // Re-enable WebSocket support with simpler config
+  logLevel: 'warn', // Reduce logging noise
+  secure: false,
+  
+  // Basic request handling
   onProxyReq(proxyReq, req, res) {
+    // Always forward cookies
+    if (req.headers.cookie) {
+      proxyReq.setHeader('Cookie', req.headers.cookie);
+    }
+    
+    // Forward authentication for API requests
     if (req.cookies.accessToken) {
       proxyReq.setHeader('Authorization', `Bearer ${req.cookies.accessToken}`);
-      proxyReq.setHeader('Cookie', `accessToken=${req.cookies.accessToken}`);
     }
   },
+  
+  // Basic WebSocket handling with origin header fix
   onProxyReqWs(proxyReq, req, socket) {
-    console.log(`🔌 Proxying WebSocket: ${req.url}`);
-    const cookies = req.headers.cookie;
-    if (cookies) {
-      console.log(`🍪 Forwarding cookies: ${cookies}`);
-      proxyReq.setHeader('Cookie', cookies);
+    console.log(`🔌 WebSocket upgrade: ${req.url}`);
+    
+    // Forward essential headers
+    if (req.headers.cookie) {
+      proxyReq.setHeader('Cookie', req.headers.cookie);
+      console.log(`🍪 Forwarding cookies: ${req.headers.cookie.substring(0, 50)}...`);
     }
+    
+    // Fix the origin header to match what Planka expects
+    proxyReq.setHeader('Origin', 'http://localhost:4000');
+    console.log(`🌐 Setting origin header to: http://localhost:4000`);
   },
+  
   onError(err, req, res) {
     console.error('❌ Proxy error:', err.message);
-    if (res && res.writeHead) {
+    if (res && res.writeHead && !res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'text/plain' });
       res.end('Proxy error: ' + err.message);
     }
-  },
-  onOpen(proxySocket) {
-    console.log('✅ WebSocket connection opened');
-  },
-  onClose(proxyRes, proxySocket, proxyHead) {
-    console.log('🔌 WebSocket connection closed');
   }
 });
 
@@ -201,18 +213,22 @@ const PORT = process.env.PROXY_PORT || 3001;
 // Create HTTP server
 const server = http.createServer(app);
 
-// Handle WebSocket upgrade events using the proxy
+// Simple WebSocket upgrade handling
 server.on('upgrade', (req, socket, head) => {
-  console.log(`🔌 WebSocket upgrade for: ${req.url}`);
-  console.log(`🔌 Headers:`, JSON.stringify(req.headers, null, 2));
+  console.log(`🔌 WebSocket upgrade request: ${req.url}`);
   
-  // Use the proxy to handle WebSocket upgrades
-  proxy.upgrade(req, socket, head);
+  try {
+    // Use the proxy to handle WebSocket upgrades
+    proxy.upgrade(req, socket, head);
+  } catch (error) {
+    console.error('🔌 WebSocket upgrade error:', error.message);
+    socket.destroy();
+  }
 });
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Proxy server running at http://0.0.0.0:${PORT}`);
-  console.log(`🔗 Access Planka login at: http://your-proxy-domain:${PORT}/planka-login?email=user@example.com`);
-  console.log(`🌐 After login, Planka will be available at: http://your-proxy-domain:${PORT}/`);
-  console.log(`🔌 Simple WebSocket proxying enabled`);
+  console.log(`🔗 Access Planka login at: http://localhost:${PORT}/planka-login?email=user@example.com`);
+  console.log(`🌐 After login, Planka will be available at: http://localhost:${PORT}/`);
+  console.log(`🔌 WebSocket support enabled with simplified config`);
 });
