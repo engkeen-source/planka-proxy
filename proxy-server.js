@@ -27,6 +27,11 @@ const PLANKA_DEFAULT_USER_PASSWORD = process.env.PLANKA_DEFAULT_USER_PASSWORD;
 console.log(`🌐 Planka URL: ${PLANKA_URL}`);
 console.log(`🔑 Using default password: ${PLANKA_DEFAULT_USER_PASSWORD}`);
 
+// Health check endpoint for Docker
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
 // This route logs in and gets all the proper cookies from Planka
 app.get('/planka-login', async (req, res) => {
     const email = req.query.email || req.query.emailOrUsername;  // support both
