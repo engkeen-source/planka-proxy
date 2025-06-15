@@ -162,7 +162,7 @@ app.get('/proxy-auth-login', async (req, res) => {
   const email = req.query.email;
   
   if (!token || !email) {
-    return res.redirect('/');
+    return res.redirect('https://' + req.get('host') + '/');
   }
   
   console.log(`🍪 Setting up complete authentication for Planka...`);
