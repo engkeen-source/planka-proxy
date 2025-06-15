@@ -26,8 +26,24 @@ app.use(cors({
 const PLANKA_URL = process.env.PLANKA_URL || 'http://localhost:4000';
 const PLANKA_DEFAULT_USER_PASSWORD = process.env.PLANKA_DEFAULT_USER_PASSWORD || 'P@55w0rd';
 
-console.log(`🌐 Planka URL: ${PLANKA_URL}`);
-console.log(`🔑 Using default password: ${PLANKA_DEFAULT_USER_PASSWORD}`);
+// Enhanced logging to debug environment variables
+console.log('🔧 ENVIRONMENT CONFIGURATION');
+console.log('='.repeat(50));
+console.log(`🌐 PLANKA_URL: ${PLANKA_URL}`);
+console.log(`🔑 PLANKA_DEFAULT_USER_PASSWORD: "${PLANKA_DEFAULT_USER_PASSWORD}"`);
+console.log(`📏 Password length: ${PLANKA_DEFAULT_USER_PASSWORD.length} characters`);
+console.log(`🐳 NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
+console.log(`🎯 PROXY_PORT: ${process.env.PROXY_PORT || '3001'}`);
+console.log('='.repeat(50));
+
+// Validate required environment variables
+if (!PLANKA_DEFAULT_USER_PASSWORD || PLANKA_DEFAULT_USER_PASSWORD === 'P@55w0rd') {
+  console.warn('⚠️  WARNING: Using default password. Make sure this matches your Planka setup!');
+}
+
+if (!PLANKA_URL.includes('planka')) {
+  console.warn('⚠️  WARNING: PLANKA_URL might not be correct for Docker environment');
+}
 
 // Health check endpoint for Docker
 app.get('/health', (req, res) => {
@@ -43,6 +59,10 @@ app.get('/planka-login', async (req, res) => {
       return res.status(400).send('Missing email');
     }
   
+    console.log(`🔐 Attempting login for: ${email}`);
+    console.log(`🔑 Using password: "${password}" (length: ${password.length})`);
+    console.log(`🌐 Target URL: ${PLANKA_URL}/api/access-tokens`);
+  
     try {
       // Make the login request with axios but capture the cookies
       const response = await axios.post(`${PLANKA_URL}/api/access-tokens`, {
@@ -52,15 +72,38 @@ app.get('/planka-login', async (req, res) => {
         // Enable cookie handling to capture all cookies from Planka
         withCredentials: true,
         // Don't follow redirects so we can handle them ourselves
-        maxRedirects: 0
+        maxRedirects: 0,
+        timeout: 10000,
+        validateStatus: () => true // Accept any status to debug
       });
+
+      console.log(`📊 Login response status: ${response.status}`);
+      console.log(`📝 Login response data:`, JSON.stringify(response.data, null, 2));
 
       // The token is directly in response.data.item (it's a JWT string)
       const token = response.data.item;
 
+      if (response.status !== 200) {
+        console.error(`❌ Login failed with status ${response.status}`);
+        console.error(`📝 Error details:`, response.data);
+        return res.status(response.status).json({
+          error: 'Login failed',
+          status: response.status,
+          details: response.data,
+          debugInfo: {
+            email,
+            passwordLength: password.length,
+            plankaUrl: PLANKA_URL
+          }
+        });
+      }
+
       if (!token) {
-        console.error('No token received in response:', response.data);
-        return res.status(401).send('Login failed - no token received');
+        console.error('❌ No token received in response:', response.data);
+        return res.status(401).json({
+          error: 'Login failed - no token received',
+          response: response.data
+        });
       }
 
       console.log(`✅ Login successful for: ${email}`);
@@ -75,8 +118,40 @@ app.get('/planka-login', async (req, res) => {
       return res.redirect(redirectUrl);
       
     } catch (err) {
-      console.error('Login failed:', err.response && err.response.data || err.message);
-      res.status(401).send('Login failed');
+      console.error('💥 Login request failed:', err.message);
+      
+      if (err.code === 'ENOTFOUND') {
+        console.error('🌐 DNS Resolution failed - cannot reach Planka server');
+        return res.status(503).json({
+          error: 'Cannot reach Planka server',
+          details: `DNS resolution failed for: ${PLANKA_URL}`,
+          code: err.code
+        });
+      }
+      
+      if (err.code === 'ECONNREFUSED') {
+        console.error('🔌 Connection refused - Planka server not responding');
+        return res.status(503).json({
+          error: 'Planka server not responding',
+          details: `Connection refused to: ${PLANKA_URL}`,
+          code: err.code
+        });
+      }
+      
+      if (err.response) {
+        console.error('📊 HTTP Error Status:', err.response.status);
+        console.error('📝 HTTP Error Data:', err.response.data);
+        return res.status(err.response.status).json({
+          error: 'Login failed',
+          status: err.response.status,
+          details: err.response.data
+        });
+      }
+      
+      return res.status(500).json({
+        error: 'Internal server error during login',
+        message: err.message
+      });
     }
   });
 
