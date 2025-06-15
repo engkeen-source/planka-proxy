@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: planka-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    command: sh -c "rm -f /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"
+    depends_on:
+      - proxy-server
+    restart: unless-stopped
+    networks:
+      - proxy-network
+
+  # Your existing proxy server
+  proxy-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: planka-proxy-server
+    environment:
+      - PLANKA_URL=http://planka:1337
+      - PLANKA_DEFAULT_USER_PASSWORD=P@55w0rd
+      - PROXY_PORT=3001
+    ports:
+      - "3001:3001"  # Direct access for WebSocket bypass
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - proxy-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  # Optional: Log management service
+  logrotate:
+    image: alpine:latest
+    container_name: planka-logrotate
+    command: >
+      sh -c "
+        apk add --no-cache logrotate dcron &&
+        echo '0 0 * * * /usr/sbin/logrotate /etc/logrotate.conf' | crontab - &&
+        crond -f
+      "
+    volumes:
+      - nginx_logs:/var/log/nginx
+      - ./logs:/var/log/nginx
+    restart: unless-stopped
+    networks:
+      - proxy-network
+
+volumes:
+  nginx_logs:
+    driver: local
+
+networks:
+  proxy-network:
+    external: true
+    name: planka-network
