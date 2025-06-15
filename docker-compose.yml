@@ -18,6 +18,7 @@ services:
     restart: unless-stopped
     networks:
       - proxy-network
+      - planka_default  # Connect to Planka's network
 
   # Your existing proxy server
   proxy-server:
@@ -28,13 +29,14 @@ services:
     env_file:
       - .env  # Read from .env file
     environment:
-      - PLANKA_URL=http://planka-planka-1:1337  # Connect to Planka container
+      - PLANKA_URL=http://planka_planka_1:1337  # Use correct container name
     ports:
       - "3001:3001"  # Direct access for WebSocket bypass
     volumes:
       - ./logs:/app/logs
     networks:
       - proxy-network
+      - planka_default  # Connect to Planka's network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 30s
@@ -65,5 +67,6 @@ volumes:
 
 networks:
   proxy-network:
-    external: true
-    name: planka-network
+    driver: bridge
+  planka_default:
+    external: true  # Use Planka's existing network
