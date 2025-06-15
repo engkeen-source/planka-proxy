@@ -55,7 +55,6 @@ services:
       "
     volumes:
       - nginx_logs:/var/log/nginx
-      - ./logs:/var/log/nginx
     restart: unless-stopped
     networks:
       - proxy-network
