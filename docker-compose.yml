@@ -25,10 +25,10 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: planka-proxy-server
+    env_file:
+      - .env  # Read from .env file
     environment:
       - PLANKA_URL=http://planka-planka-1:1337  # Connect to Planka container
-      - PLANKA_DEFAULT_USER_PASSWORD=P@55w0rd
-      - PROXY_PORT=3001
     ports:
       - "3001:3001"  # Direct access for WebSocket bypass
     volumes:
