@@ -8,6 +8,7 @@ const cors = require('cors');
 
 const app = express();
 app.use(cookieParser());
+app.set('trust proxy', true);
 
 // CORS: Allow requests from your frontend domain
 app.use(cors({
