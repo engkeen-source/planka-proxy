@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
     networks:
       - proxy-network
-      - planka_default  # Connect to Planka's network
+      - planka-network  # Connect to existing Planka network
 
   # Your existing proxy server
   proxy-server:
@@ -36,7 +36,7 @@ services:
       - ./logs:/app/logs
     networks:
       - proxy-network
-      - planka_default  # Connect to Planka's network
+      - planka-network  # Connect to existing Planka network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 30s
@@ -68,5 +68,5 @@ volumes:
 networks:
   proxy-network:
     driver: bridge
-  planka_default:
-    external: true  # Use Planka's existing network
+  planka-network:
+    external: true  # Use existing Planka network
