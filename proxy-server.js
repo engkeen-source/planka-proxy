@@ -114,7 +114,7 @@ app.get('/planka-login', async (req, res) => {
       console.log('🍪 Cookies from Planka:', setCookieHeaders);
 
       // Store the token temporarily and redirect to our auth handler
-      const redirectUrl = `${req.protocol}://${req.get('host')}/proxy-auth-login?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+      const redirectUrl = `https://${req.get('host')}/proxy-auth-login?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
       return res.redirect(redirectUrl);
       
     } catch (err) {
