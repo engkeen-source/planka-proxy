@@ -26,7 +26,7 @@ services:
       dockerfile: Dockerfile
     container_name: planka-proxy-server
     environment:
-      - PLANKA_URL=http://planka:1337
+      - PLANKA_URL=http://planka-planka-1:1337  # Connect to Planka container
       - PLANKA_DEFAULT_USER_PASSWORD=P@55w0rd
       - PROXY_PORT=3001
     ports:

@@ -185,8 +185,8 @@ const proxy = createProxyMiddleware({
     }
     
     // Fix the origin header to match what Planka expects
-    proxyReq.setHeader('Origin', 'http://localhost:4000');
-    console.log(`🌐 Setting origin header to: http://localhost:4000`);
+    proxyReq.setHeader('Origin', 'https://planka.zackywacky.net');
+    console.log(`🌐 Setting origin header to: https://planka.zackywacky.net`);
   },
   
   onError(err, req, res) {
