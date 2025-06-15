@@ -293,8 +293,8 @@ server.on('upgrade', (req, socket, head) => {
   console.log(`🔌 WebSocket upgrade request: ${req.url}`);
   
   try {
-    // Use the proxy to handle WebSocket upgrades
-    proxy.upgrade(req, socket, head);
+  // Use the proxy to handle WebSocket upgrades
+  proxy.upgrade(req, socket, head);
   } catch (error) {
     console.error('🔌 WebSocket upgrade error:', error.message);
     socket.destroy();
